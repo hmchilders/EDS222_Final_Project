@@ -1,0 +1,105 @@
+---
+title: "NetCDF_Practice"
+format: html
+editor: visual
+---
+
+## Import Libraries
+
+```{r}
+library(terra)
+library(ncdf4)
+library(RNetCDF)
+library(terra)
+library(sf)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(ggplot2)
+library(here)
+library(tmap)
+library(cowplot)
+library(tidyverse)
+library(tmap)
+library(devtools)
+library(tmaptools)
+library(maptiles)
+library(feasts)
+library(lubridate)
+library(forecast)
+library(tsibble)
+
+```
+
+## Reading in a NetCDF file in R
+
+```{r}
+rt <- rast('Fig9-3b_data.nc')
+plot(rt)
+```
+
+```{r}
+CA_2011 <- rast(here('data','gaplf2011lc_v30_CA','gaplf2011lc_v30_ca.tif'))
+plot(CA_2011)
+mask <- 
+```
+
+```{r}
+CAdata_csv <- read_csv('~/Documents/MEDS/Courses/EDS222/EDS222_Final_Project/data/gaplf2011lc_v30_CA/gaplf2011lc_v30_state_summary.csv')
+```
+
+```{r}
+head(CAdata_csv)
+```
+
+```{r}
+yolo <- st_read(here('data', 'EVA_tool_counties','conus_eva_tool_shapefile_prj_final.shp'))
+```
+
+```{r}
+plot(yolo)
+```
+
+```{r}
+CA <- rast(read_csv(here('data', 'California_County_boundaries.csv')))
+```
+
+```{r}
+ca_data <- read_csv('data/California_County_Boundaries.csv')
+```
+
+```{r}
+plot(ca_data$GlobalID)
+```
+
+```{r}
+index <- rast('~/Documents/MEDS/Courses/EDS222/EDS222_Final_Project/data/NLCD_landcover_2021_release_all_files_20230630/')
+```
+
+```{r}
+
+```
+
+```{r}
+water <- read_csv(here('data','time_series.csv'))
+
+water_ts = water %>% 
+  mutate(
+    yr_mo = yearmonth(DateTime)) %>% 
+  group_by(yr_mo) %>% 
+  tsibble(index = yr_mo)
+```
+
+```{r}
+dcmp <- water_ts %>%   
+  model(STL(value))
+
+components(dcmp) %>% 
+  autoplot(color = 'forestgreen')
+```
+
+```{r}
+NLCU <- rast(here('data','NLCD_landcover_2021_release_all_files_20230630','nlcd_2001_land_cover_l48_20210604.img'))
+
+plot(NLCU)
+```
