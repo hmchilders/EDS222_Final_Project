@@ -1,105 +1,262 @@
 ---
-title: "NetCDF_Practice"
+title: "Impact of Land Use Change on Water Storage in the Yolo County Area"
 format: html
 editor: visual
 ---
+
+# Impact of Land Use Change on Water Storage in the Yolo County Area
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+## Motivation
 
 ## Import Libraries
 
 ```{r}
 library(terra)
-library(ncdf4)
-library(RNetCDF)
-library(terra)
 library(sf)
-library(dplyr)
-library(tidyr)
 library(stringr)
 library(ggplot2)
 library(here)
-library(tmap)
-library(cowplot)
 library(tidyverse)
-library(tmap)
-library(devtools)
-library(tmaptools)
-library(maptiles)
 library(feasts)
 library(lubridate)
 library(forecast)
 library(tsibble)
-
+library(patchwork)
 ```
 
-## Reading in a NetCDF file in R
+## Import the data
+
+Start by importing the land cover data from 2001 to 2021 as rasters
 
 ```{r}
-rt <- rast('Fig9-3b_data.nc')
-plot(rt)
-```
-
-```{r}
-CA_2011 <- rast(here('data','gaplf2011lc_v30_CA','gaplf2011lc_v30_ca.tif'))
-plot(CA_2011)
-mask <- 
-```
-
-```{r}
-CAdata_csv <- read_csv('~/Documents/MEDS/Courses/EDS222/EDS222_Final_Project/data/gaplf2011lc_v30_CA/gaplf2011lc_v30_state_summary.csv')
-```
-
-```{r}
-head(CAdata_csv)
-```
-
-```{r}
-yolo <- st_read(here('data', 'EVA_tool_counties','conus_eva_tool_shapefile_prj_final.shp'))
-```
-
-```{r}
-plot(yolo)
-```
-
-```{r}
-CA <- rast(read_csv(here('data', 'California_County_boundaries.csv')))
-```
-
-```{r}
-ca_data <- read_csv('data/California_County_Boundaries.csv')
-```
-
-```{r}
-plot(ca_data$GlobalID)
-```
-
-```{r}
-index <- rast('~/Documents/MEDS/Courses/EDS222/EDS222_Final_Project/data/NLCD_landcover_2021_release_all_files_20230630/')
-```
-
-```{r}
+NLCU_2001 <- rast(here('data','NLCD_landcover_2021_release_all_files_20230630','nlcd_2001_land_cover_l48_20210604.img')) 
+NLCU_2004 <- rast(here('data','NLCD_landcover_2021_release_all_files_20230630','nlcd_2004_land_cover_l48_20210604.img'))
+NLCU_2006 <- rast(here('data','NLCD_landcover_2021_release_all_files_20230630','nlcd_2006_land_cover_l48_20210604.img'))
+NLCU_2008 <- rast(here('data','NLCD_landcover_2021_release_all_files_20230630','nlcd_2008_land_cover_l48_20210604.img'))
+NLCU_2011 <- rast(here('data','NLCD_landcover_2021_release_all_files_20230630','nlcd_2011_land_cover_l48_20210604.img'))
+NLCU_2013 <- rast(here('data','NLCD_landcover_2021_release_all_files_20230630','nlcd_2013_land_cover_l48_20210604.img'))
+NLCU_2016 <- rast(here('data','NLCD_landcover_2021_release_all_files_20230630','nlcd_2016_land_cover_l48_20210604.img'))
+NLCU_2019 <- rast(here('data','NLCD_landcover_2021_release_all_files_20230630','nlcd_2019_land_cover_l48_20210604.img'))
+NLCU_2021 <- rast(here('data','NLCD_landcover_2021_release_all_files_20230630','nlcd_2021_land_cover_l48_20230630.img'))
 
 ```
 
 ```{r}
-water <- read_csv(here('data','time_series.csv'))
-
-water_ts = water %>% 
-  mutate(
-    yr_mo = yearmonth(DateTime)) %>% 
-  group_by(yr_mo) %>% 
-  tsibble(index = yr_mo)
+water_ts <- read_csv(here('data','time_series.csv'))
 ```
 
 ```{r}
-dcmp <- water_ts %>%   
-  model(STL(value))
+CA <- st_read(here('data','CA_Counties','CA_Counties_TIGER2016.shp'))
+yolo_county <- CA %>% 
+  filter(CA$NAME == 'Yolo')
 
-components(dcmp) %>% 
+yolo <- yolo_county %>% st_transform(crs = st_crs(NLCU_2001))
+```
+
+## Data Exploration
+
+```{r}
+ggplot(data = water_ts, aes(x = DateTime, y = water_ts$`Water Equivalent Thickness – Land (GRACE, GRACE-FO JPL)`))+
+  geom_line(col = 'forestgreen')
+```
+
+```{r}
+water_dcmp <- water_ts %>% 
+  group_by(year = year(DateTime)) %>% 
+  summarize(mean_water = mean(`Water Equivalent Thickness – Land (GRACE, GRACE-FO JPL)`))
+
+ggplot(data = water_dcmp, aes(x = year, y = mean_water))+
+  geom_line(col = 'dodgerblue')
+
+dcmp <- water_dcmp %>% 
+  tsibble(index = year) %>% 
+  model(STL(mean_water))
+
+plot_tswater<- components(dcmp) %>% 
   autoplot(color = 'forestgreen')
 ```
 
 ```{r}
-NLCU <- rast(here('data','NLCD_landcover_2021_release_all_files_20230630','nlcd_2001_land_cover_l48_20210604.img'))
 
-plot(NLCU)
+```
+
+```{r}
+lulc_ca21 <- crop(NLCU_2021,yolo) %>% 
+  project(crs('EPSG:4326'))
+lulc_ca19 <- crop(NLCU_2019,yolo)%>% 
+  project(crs('EPSG:4326'))
+lulc_ca16 <- crop(NLCU_2016,yolo)%>% 
+  project(crs('EPSG:4326'))
+lulc_ca13 <- crop(NLCU_2013,yolo)%>% 
+  project(crs('EPSG:4326'))
+lulc_ca11 <- crop(NLCU_2011,yolo)%>% 
+  project(crs('EPSG:4326'))
+lulc_ca08 <- crop(NLCU_2008,yolo)%>% 
+  project(crs('EPSG:4326'))
+lulc_ca06 <- crop(NLCU_2006,yolo)%>% 
+  project(crs('EPSG:4326'))
+lulc_ca04 <- crop(NLCU_2004,yolo)%>% 
+  project(crs('EPSG:4326'))
+lulc_ca01 <- crop(NLCU_2001,yolo)%>% 
+  project(crs('EPSG:4326'))
+```
+
+```{r}
+plot(lulc_ca01)
+plot(lulc_ca11)
+plot(lulc_ca21)
+```
+
+```{r}
+ #Create a reclasification matrix for the suitable depth
+rcl_crp <- matrix(c(-Inf, 81, NA,
+                      81, 82 , 1,
+                      83, Inf, NA), ncol = 3, byrow = TRUE)
+
+rcl_dev <- matrix(c(-Inf, 22, NA,
+                      22, 23 , 1,
+                      23, Inf, NA), ncol = 3, byrow = TRUE)
+rcl <- matrix(c(-Inf, 0, NA,
+                      0, 100 , 1,
+                      100, Inf, NA), ncol = 3, byrow = TRUE)
+
+```
+
+```{r}
+lulc <- list(lulc_ca01,
+          lulc_ca04,
+          lulc_ca06,
+          lulc_ca08,
+          lulc_ca11,
+          lulc_ca13,
+          lulc_ca16,
+          lulc_ca19,
+          lulc_ca21)
+
+# Create an empty dataframe to store the results
+zonal_crop <- data.frame(ID = numeric(0), Zonal_Result = numeric(0))
+
+for (i in seq_along(lulc)) {
+  reclass <- classify(lulc[[i]], rcl = rcl_crp)  # Use double brackets to access list elements
+  area <- cellSize(reclass)
+  zonal_result <- zonal(area, reclass, fun = 'sum', na.rm = TRUE)
+  
+  # Append the result to the dataframe
+  zonal_crop <- rbind(zonal_crop, data.frame(ID = i, Zonal_Result = zonal_result))
+}
+
+years_list <- c(2001,2004,2006,2008,2011,2013,2016,2019,2021)
+
+zonal_crop
+
+
+```
+
+```{r}
+# Create an empty dataframe to store the results
+zonal_dev <- data.frame(ID = numeric(0), Zonal_Result = numeric(0))
+
+for (i in seq_along(lulc)) {
+  reclass <- classify(lulc[[i]], rcl = rcl_dev)
+  area <- cellSize(reclass)
+  zonal_result_dev <- zonal(area, reclass, fun = 'sum', na.rm = TRUE)
+  
+  # Append the result to the dataframe
+  zonal_dev <- rbind(zonal_dev, data.frame(ID = i, Zonal_Result = zonal_result_dev))
+}
+
+dev_lulc <- zonal_dev  %>% 
+  mutate(year = years_list) %>% 
+  rename(developed_area = Zonal_Result.area)
+```
+
+```{r}
+crp_lulc <- zonal_crop  %>% 
+  mutate(year = years_list)%>% 
+  rename(cultcrop_area = Zonal_Result.area)
+```
+
+```{r}
+# Plot for lulc_ts
+plot_lulc <- ggplot(crp_lulc, aes(x = year, y = cultcrop_area)) +
+  geom_line(color = "blue") +
+  labs(title = "Area of Cultivated Crops")
+
+# Combine plots side by side
+combined_plots <- plot_lulc + plot_tswater + plot_layout(ncol = 2)
+
+# Display the combined plots
+print(combined_plots)
+```
+
+```{r}
+hyp_data2 <- left_join(crp_lulc,water_dcmp) %>% 
+  mutate(cultcrop_area = cultcrop_area/1000000) %>% 
+  mutate(crp_area2 = (cultcrop_area)^2) %>% 
+  mutate(crp_area3 = (cultcrop_area)^3)
+hyp_data3 <- left_join(hyp_data2, dev_lulc, by = 'year')
+hyp_data4 <- left_join(hyp_data3, precip_test, by = 'year')
+
+```
+
+```{r}
+summary(lm(mean_water ~ cultcrop_area, data = hyp_data2))
+```
+
+```{r}
+summary(lm(mean_water ~ cultcrop_area + crp_area2, data = hyp_data2))
+```
+
+```{r}
+summary(lm(mean_water ~ cultcrop_area + crp_area2 + crp_area3, data = hyp_data2))
+```
+
+```{r}
+summary(lm(mean_water ~ cultcrop_area + crp_area2 + developed_area, data = hyp_data3))
+```
+
+```{r}
+summary(lm(mean_water ~ cultcrop_area, data = hyp_data3))
+```
+
+```{r}
+summary(lm(mean_water ~ cultcrop_area + avg_precip, data = hyp_data4))
+```
+
+```{r}
+precip_03 <- read_csv(here('data', 'precip','WDL_03.csv'))
+precip_08 <- read_csv(here('data', 'precip','WDL_08.csv'))
+precip_13 <- read_csv(here('data', 'precip','WDL_13.csv'))
+
+precip <- rbind(precip_03, precip_08) %>% 
+  rbind(precip, precip_13)
+
+precip_test <- precip %>%
+  mutate(DATE = as.Date(DATE, format = '%M/%Y'),
+         year = year(DATE)) %>% 
+  mutate(rainfall = as.numeric(`RAIN INCHES`)) %>% 
+  group_by(year) %>% 
+  summarise(avg_precip = (mean(rainfall, na.rm = TRUE)*2.54))
+```
+
+```{r}
+dcmp2 <- precip_test %>% 
+  drop_na() %>% 
+  tsibble(index = year) %>% 
+  model(STL(avg_precip))
+
+plot_tsprecip<- components(dcmp2) %>% 
+  autoplot(color = 'darkgreen')
+plot_tsprecip
+```
+
+```{r}
+combined_plots2 <- plot_tsprecip + plot_tswater + plot_layout(ncol = 2)
+
+# Display the combined plots
+print(combined_plots2)
 ```
