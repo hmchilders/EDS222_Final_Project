@@ -26,6 +26,8 @@ library(lubridate)
 library(forecast)
 library(tsibble)
 library(patchwork)
+library(gridExtra)
+library(gt)
 ```
 
 ## Import the data
@@ -107,8 +109,9 @@ lulc_ca01 <- crop(NLCU_2001,yolo)%>%
 
 ```{r}
 plot(lulc_ca01)
-plot(lulc_ca11)
-plot(lulc_ca21)
+plot(lulc_ca11, main = 'Land Cover in 2011', legend = FALSE)
+plot(lulc_ca21, main = 'Land Cover in 2021')
+ggsave("lulc2021.jpeg")
 ```
 
 ```{r}
@@ -183,14 +186,17 @@ crp_lulc <- zonal_crop  %>%
 ```{r}
 # Plot for lulc_ts
 plot_lulc <- ggplot(crp_lulc, aes(x = year, y = cultcrop_area)) +
-  geom_line(color = "blue") +
-  labs(title = "Area of Cultivated Crops")
+  geom_line(color = "blue" ) +
+  labs(title = "Area of Cultivated Crops",
+       x = "Cultivated Crop Area (m^2)",
+       y = 'Time (years)')
 
 # Combine plots side by side
 combined_plots <- plot_lulc + plot_tswater + plot_layout(ncol = 2)
 
 # Display the combined plots
 print(combined_plots)
+ggsave("trends.jpeg")
 ```
 
 ```{r}
@@ -209,6 +215,10 @@ summary(lm(mean_water ~ cultcrop_area, data = hyp_data2))
 
 ```{r}
 summary(lm(mean_water ~ cultcrop_area + crp_area2, data = hyp_data2))
+```
+
+```{r}
+summary(lm(mean_water~poly(cultcrop_area,2, raw=TRUE), data=hyp_data2))
 ```
 
 ```{r}
@@ -259,4 +269,5 @@ combined_plots2 <- plot_tsprecip + plot_tswater + plot_layout(ncol = 2)
 
 # Display the combined plots
 print(combined_plots2)
+ggsave("Decomp.png")
 ```
